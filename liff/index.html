@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Stock News Dashboard</title>
+
+        <!-- LIFF SDK -->
+        <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+        <!-- Chart.js for visualizations -->
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    sans-serif;
+                background: #f5f5f5;
+                padding: 10px;
+            }
+
+            .container {
+                max-width: 800px;
+                margin: 0 auto;
+            }
+
+            .header {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 20px;
+                border-radius: 10px;
+                margin-bottom: 20px;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            }
+
+            .header h1 {
+                font-size: 24px;
+                margin-bottom: 5px;
+            }
+
+            .header p {
+                font-size: 14px;
+                opacity: 0.9;
+            }
+
+            .search-box {
+                background: white;
+                padding: 15px;
+                border-radius: 10px;
+                margin-bottom: 20px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            }
+
+            .search-box input {
+                width: 100%;
+                padding: 12px;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                font-size: 16px;
+            }
+
+            .filters {
+                background: white;
+                padding: 15px;
+                border-radius: 10px;
+                margin-bottom: 20px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            }
+
+            .filter-row {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 10px;
+                flex-wrap: wrap;
+            }
+
+            .filter-row select,
+            .filter-row button {
+                padding: 10px 15px;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                font-size: 14px;
+                background: white;
+            }
+
+            .filter-row button {
+                background: #667eea;
+                color: white;
+                border: none;
+                cursor: pointer;
+            }
+
+            .filter-row button:active {
+                opacity: 0.8;
+            }
+
+            .stats {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 10px;
+                margin-bottom: 20px;
+            }
+
+            .stat-card {
+                background: white;
+                padding: 15px;
+                border-radius: 10px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                text-align: center;
+            }
+
+            .stat-value {
+                font-size: 28px;
+                font-weight: bold;
+                color: #667eea;
+            }
+
+            .stat-label {
+                font-size: 12px;
+                color: #666;
+                margin-top: 5px;
+            }
+
+            .news-list {
+                background: white;
+                padding: 15px;
+                border-radius: 10px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            }
+
+            .news-item {
+                border-bottom: 1px solid #eee;
+                padding: 15px 0;
+            }
+
+            .news-item:last-child {
+                border-bottom: none;
+            }
+
+            .news-title {
+                font-weight: bold;
+                font-size: 16px;
+                margin-bottom: 8px;
+                color: #333;
+            }
+
+            .news-summary {
+                font-size: 14px;
+                color: #666;
+                margin-bottom: 10px;
+                line-height: 1.5;
+            }
+
+            .news-meta {
+                display: flex;
+                gap: 10px;
+                flex-wrap: wrap;
+                align-items: center;
+            }
+
+            .badge {
+                display: inline-block;
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 12px;
+                font-weight: 500;
+            }
+
+            .badge-ticker {
+                background: #e3f2fd;
+                color: #1976d2;
+            }
+
+            .badge-impact {
+                background: #ffebee;
+                color: #c62828;
+            }
+
+            .badge-positive {
+                background: #e8f5e9;
+                color: #2e7d32;
+            }
+
+            .badge-negative {
+                background: #ffebee;
+                color: #c62828;
+            }
+
+            .loading {
+                text-align: center;
+                padding: 40px;
+                color: #666;
+            }
+
+            .error {
+                background: #ffebee;
+                color: #c62828;
+                padding: 15px;
+                border-radius: 10px;
+                margin-bottom: 20px;
+            }
+
+            .refresh-btn {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                width: 56px;
+                height: 56px;
+                border-radius: 50%;
+                background: #667eea;
+                color: white;
+                border: none;
+                font-size: 24px;
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+                cursor: pointer;
+            }
+
+            .refresh-btn:active {
+                transform: scale(0.95);
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <!-- Header -->
+            <div class="header">
+                <h1 id="user-name">Stock News Dashboard</h1>
+                <p id="last-update">Loading...</p>
+            </div>
+
+            <!-- Search -->
+            <div class="search-box">
+                <input
+                    type="text"
+                    id="search-input"
+                    placeholder="Search by ticker or keyword..."
+                />
+            </div>
+
+            <!-- Filters -->
+            <div class="filters">
+                <div class="filter-row">
+                    <select id="impact-filter">
+                        <option value="0">All Impact Scores</option>
+                        <option value="7">Impact &gt;= 7</option>
+                        <option value="8">Impact &gt;= 8</option>
+                        <option value="9">Impact &gt;= 9</option>
+                    </select>
+
+                    <select id="price-filter">
+                        <option value="">All Price Impact</option>
+                        <option value="positive">Positive</option>
+                        <option value="negative">Negative</option>
+                        <option value="neutral">Neutral</option>
+                    </select>
+
+                    <button onclick="applyFilters()">Apply Filters</button>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="total-news">0</div>
+                    <div class="stat-label">Total News</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="high-impact">0</div>
+                    <div class="stat-label">High Impact (&gt;=8)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="avg-score">0</div>
+                    <div class="stat-label">Avg Score</div>
+                </div>
+            </div>
+
+            <!-- News List -->
+            <div class="news-list" id="news-list">
+                <div class="loading">Loading news...</div>
+            </div>
+        </div>
+
+        <!-- Refresh Button -->
+        <button class="refresh-btn" onclick="refreshNews()">↻</button>
+
+        <script>
+            // Configuration
+            const API_BASE_URL =
+                "https://humanities-connecticut-lucky-orleans.trycloudflare.com/api"; // Change this to your API URL
+            const LIFF_ID = "YOUR-LIFF-ID"; // Replace with your LIFF ID
+
+            let allNews = [];
+            let filteredNews = [];
+
+            // Initialize LIFF
+            async function initLiff() {
+                try {
+                    await liff.init({ liffId: LIFF_ID });
+
+                    if (!liff.isLoggedIn()) {
+                        liff.login();
+                        return;
+                    }
+
+                    // Get user profile
+                    const profile = await liff.getProfile();
+                    document.getElementById("user-name").textContent =
+                        `Hello, ${profile.displayName}!`;
+
+                    // Load news
+                    loadNews();
+
+                    // Setup search
+                    document
+                        .getElementById("search-input")
+                        .addEventListener("input", handleSearch);
+                } catch (err) {
+                    console.error("LIFF initialization failed", err);
+                    showError("Failed to initialize LINE Mini App");
+                }
+            }
+
+            // Load news from API
+            async function loadNews() {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/news/latest`);
+                    const data = await response.json();
+
+                    if (data.success) {
+                        allNews = data.news || [];
+                        filteredNews = allNews;
+
+                        updateStats();
+                        displayNews(filteredNews);
+
+                        const updateTime = data.cached
+                            ? "Showing cached data"
+                            : `Updated: ${new Date().toLocaleTimeString()}`;
+                        document.getElementById("last-update").textContent =
+                            updateTime;
+                    } else {
+                        showError(data.error || "Failed to load news");
+                    }
+                } catch (err) {
+                    console.error("Failed to load news", err);
+                    showError("Failed to connect to server");
+                }
+            }
+
+            // Display news
+            function displayNews(news) {
+                const newsList = document.getElementById("news-list");
+
+                if (news.length === 0) {
+                    newsList.innerHTML =
+                        '<div class="loading">No news found</div>';
+                    return;
+                }
+
+                newsList.innerHTML = news
+                    .map((item, index) => {
+                        const article = item.original_article || {};
+                        const analysis = item.analysis || {};
+
+                        const title = article.title || "No title";
+                        const summary =
+                            article.description || analysis.reasoning || "";
+                        const tickers = analysis.tickers || [];
+                        const impact = analysis.impact_score || 0;
+                        const priceImpact = analysis.price_impact || "neutral";
+
+                        return `
+                    <div class="news-item">
+                        <div class="news-title">${title}</div>
+                        <div class="news-summary">${summary.substring(0, 150)}...</div>
+                        <div class="news-meta">
+                            ${tickers.map((t) => `<span class="badge badge-ticker">${t}</span>`).join("")}
+                            <span class="badge badge-impact">Score: ${impact}/10</span>
+                            <span class="badge badge-${priceImpact}">${priceImpact}</span>
+                        </div>
+                    </div>
+                `;
+                    })
+                    .join("");
+            }
+
+            // Update statistics
+            function updateStats() {
+                const total = filteredNews.length;
+                const highImpact = filteredNews.filter(
+                    (n) => (n.analysis?.impact_score || 0) >= 8,
+                ).length;
+
+                const avgScore =
+                    filteredNews.length > 0
+                        ? (
+                              filteredNews.reduce(
+                                  (sum, n) =>
+                                      sum + (n.analysis?.impact_score || 0),
+                                  0,
+                              ) / filteredNews.length
+                          ).toFixed(1)
+                        : 0;
+
+                document.getElementById("total-news").textContent = total;
+                document.getElementById("high-impact").textContent = highImpact;
+                document.getElementById("avg-score").textContent = avgScore;
+            }
+
+            // Handle search
+            function handleSearch(e) {
+                const query = e.target.value.toLowerCase().trim();
+
+                if (!query) {
+                    filteredNews = allNews;
+                } else {
+                    filteredNews = allNews.filter((item) => {
+                        const title = (
+                            item.original_article?.title || ""
+                        ).toLowerCase();
+                        const tickers = item.analysis?.tickers || [];
+                        const tickersStr = tickers.join(" ").toLowerCase();
+
+                        return (
+                            title.includes(query) || tickersStr.includes(query)
+                        );
+                    });
+                }
+
+                updateStats();
+                displayNews(filteredNews);
+            }
+
+            // Apply filters
+            function applyFilters() {
+                const minImpact = parseInt(
+                    document.getElementById("impact-filter").value,
+                );
+                const priceFilter =
+                    document.getElementById("price-filter").value;
+
+                filteredNews = allNews.filter((item) => {
+                    const analysis = item.analysis || {};
+                    const impact = analysis.impact_score || 0;
+                    const priceImpact = analysis.price_impact || "";
+
+                    let matches = true;
+
+                    if (minImpact > 0 && impact < minImpact) {
+                        matches = false;
+                    }
+
+                    if (priceFilter && priceImpact !== priceFilter) {
+                        matches = false;
+                    }
+
+                    return matches;
+                });
+
+                updateStats();
+                displayNews(filteredNews);
+            }
+
+            // Refresh news
+            async function refreshNews() {
+                try {
+                    document.getElementById("news-list").innerHTML =
+                        '<div class="loading">Refreshing...</div>';
+
+                    const response = await fetch(`${API_BASE_URL}/refresh`);
+                    const data = await response.json();
+
+                    if (data.success) {
+                        await loadNews();
+                    } else {
+                        showError(data.error || "Failed to refresh");
+                    }
+                } catch (err) {
+                    console.error("Refresh failed", err);
+                    showError("Failed to refresh news");
+                }
+            }
+
+            // Show error
+            function showError(message) {
+                const newsList = document.getElementById("news-list");
+                newsList.innerHTML = `<div class="error">${message}</div>`;
+            }
+
+            // Initialize when page loads
+            window.onload = initLiff;
+        </script>
+    </body>
+</html>
